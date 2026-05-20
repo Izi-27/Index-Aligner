@@ -316,9 +316,8 @@ Support
 Contact
 
 Channel Information
-Discord [Your Discord username]
-Email [Your email address]
-GitHub Issues [Link to your repo issues page]
+Discord [big_izi]
+Email [olubusuyiisaiah27@gmail.com]
 
 FAQ
 
