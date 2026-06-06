@@ -8,7 +8,7 @@
 .index-trigger > span { white-space: nowrap; }
 .connect-secure .ic { width: 15px; height: 15px; }
 .wo-arrow .ic { width: 18px; height: 18px; }
-.coin { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; flex: none; letter-spacing: -0.02em; }
+.coin { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; flex: none; letter-spacing: -0.02em; filter: grayscale(1); }
 .coin.sm { width: 22px; height: 22px; font-size: 9px; }
 .coin.lg { width: 36px; height: 36px; font-size: 13px; }
 
@@ -28,7 +28,7 @@ body.app-body { background: var(--bg-tint); }
 .wallet-pill { display: inline-flex; align-items: center; gap: 10px; padding: 7px 8px 7px 14px; border-radius: 11px; background: var(--surface); border: 1px solid var(--border-strong); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: border-color .15s; }
 .wallet-pill:hover { border-color: var(--brand); }
 .wallet-pill .addr { font-family: var(--mono); font-size: 12.5px; }
-.wallet-pill .avatar { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, var(--brand), oklch(0.7 0.15 200)); }
+.wallet-pill .avatar { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, var(--brand), oklch(0.7 0 0)); }
 .wallet-pill .net { width: 7px; height: 7px; border-radius: 50%; background: var(--pos); box-shadow: 0 0 0 3px var(--pos-soft); }
 
 /* ---------- Page wrap ---------- */
@@ -128,14 +128,14 @@ body.app-body { background: var(--bg-tint); }
 .connect-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 26px; }
 .wallet-opt { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--border-strong); border-radius: 13px; cursor: pointer; background: var(--surface); transition: border-color .15s, background-color .15s; text-align: left; }
 .wallet-opt:hover { border-color: var(--brand); background: var(--bg-tint); }
-.wallet-opt .wo-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+.wallet-opt .wo-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none; filter: grayscale(1); }
 .wallet-opt .wo-name { font-weight: 700; font-size: 15px; }
 .wallet-opt .wo-sub { font-size: 12.5px; color: var(--text-mut); }
 .wallet-opt .wo-arrow { margin-left: auto; color: var(--text-faint); }
 .connect-secure { font-size: 12.5px; color: var(--text-faint); margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 7px; }
 
 /* ---------- Drawer (rebalance review) ---------- */
-.drawer-backdrop { position: fixed; inset: 0; background: oklch(0.15 0.02 277 / 0.5); backdrop-filter: blur(3px); z-index: 100; opacity: 0; animation: fadein .2s forwards; }
+.drawer-backdrop { position: fixed; inset: 0; background: oklch(0.15 0 0 / 0.5); backdrop-filter: blur(3px); z-index: 100; opacity: 0; animation: fadein .2s forwards; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--bg); border-left: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); z-index: 101; display: flex; flex-direction: column; transform: translateX(100%); animation: slidein .32s cubic-bezier(.2,.8,.2,1) forwards; }
 @keyframes fadein { to { opacity: 1; } }
 @keyframes slidein { to { transform: translateX(0); } }
@@ -161,7 +161,7 @@ body.app-body { background: var(--bg-tint); }
 .order-summary .os-row .k { color: var(--text-mut); }
 .order-summary .os-row .v { font-weight: 700; font-family: var(--mono); }
 .order-summary .os-row.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 12px; font-size: 15px; }
-.risk-note { display: flex; gap: 11px; padding: 14px; background: var(--warn-soft); border-radius: 12px; margin-top: 16px; font-size: 13px; color: oklch(0.45 0.1 65); line-height: 1.5; }
+.risk-note { display: flex; gap: 11px; padding: 14px; background: var(--warn-soft); border-radius: 12px; margin-top: 16px; font-size: 13px; color: oklch(0.40 0 0); line-height: 1.5; }
 [data-theme="dark"] .risk-note { color: var(--warn); }
 .risk-note svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
 
