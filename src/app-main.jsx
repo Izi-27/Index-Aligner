@@ -1,12 +1,12 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './lib/theme.js'
-import Landing from './landing/Landing.jsx'
+import App from './app/App.jsx'
 import './styles/base.css'
-import './styles/landing.css'
+import './styles/app.css'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Landing />
+    <App />
   </React.StrictMode>
 )
