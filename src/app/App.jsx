@@ -4,6 +4,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Icon } from './ui.jsx'
 import * as D from './data.js'
+import {
+  fetchIndexes, fetchPrices, mergePrices, fetchHoldings, applyHoldings,
+  fetchQuote, executeRebalance as apiExecute,
+  fetchProfile, saveSettings as apiSaveSettings, appendHistory as apiAppendHistory
+} from './api.js'
 import { getTheme, toggleTheme as toggleThemeFn } from '../lib/theme.js'
 import { LogoMark } from '../components/Logo.jsx'
 import Dashboard from './Dashboard.jsx'
@@ -99,6 +104,7 @@ function Toast({ toast }) {
 
 export default function App() {
   const saved = loadState()
+  const hadSavedIndexes = useRef(!!saved.indexes)
   const [theme, setTheme] = useState(getTheme())
   const [wallet, setWallet] = useState(saved.wallet || null)
   const [view, setView] = useState(saved.view || 'dashboard')
@@ -107,6 +113,7 @@ export default function App() {
   const [settings, setSettings] = useState(Object.assign({ tolerance: 5, alerts: false, email: '', autoExec: false }, saved.settings))
   const [history, setHistory] = useState(saved.history || D.SEED_HISTORY)
   const [drawer, setDrawer] = useState(false)
+  const [rebal, setRebal] = useState(null) // authoritative { orders, summary } for the drawer
   const [refreshing, setRefreshing] = useState(false)
   const [syncedAt, setSyncedAt] = useState('just now')
   const [toast, setToast] = useState(null)
@@ -123,6 +130,39 @@ export default function App() {
     return () => window.removeEventListener('ia-theme-change', onTheme)
   }, [])
 
+  // Load live data from the backend on mount. A brand-new user (no saved
+  // state) is seeded with the server's full composition; a returning user
+  // keeps their saved weights and just gets fresh prices merged in. If the
+  // functions aren't reachable, we silently keep the bundled mock.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        if (!hadSavedIndexes.current) {
+          const live = await fetchIndexes()
+          if (!cancelled && live && live.length) { setIndexes(live); setSyncedAt(nowStr()); return }
+        }
+        const prices = await fetchPrices()
+        if (!cancelled) { setIndexes(prev => mergePrices(prev, prices)); setSyncedAt(nowStr()) }
+      } catch {
+        /* functions not running (e.g. plain `vite` dev) — keep mock data */
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // Persist settings to the server (per wallet), debounced so dragging the
+  // tolerance slider doesn't spam writes. No-op when disconnected / offline.
+  const settingsSaveTimer = useRef(null)
+  useEffect(() => {
+    if (!wallet) return
+    clearTimeout(settingsSaveTimer.current)
+    settingsSaveTimer.current = setTimeout(() => {
+      apiSaveSettings(wallet.addr, settings).catch(() => {})
+    }, 600)
+    return () => clearTimeout(settingsSaveTimer.current)
+  }, [settings, wallet])
+
   const toastTimer = useRef(null)
   function showToast(msg) {
     setToast(msg)
@@ -135,13 +175,29 @@ export default function App() {
   const orders = useMemo(() => D.orders(index, settings.tolerance), [index, settings.tolerance])
   const summary = useMemo(() => D.summary(index, settings.tolerance), [index, settings.tolerance])
 
-  function connect(kind) {
+  async function connect(kind) {
     const w = kind === 'metamask'
       ? { addr: '0x7a3f…C42b', label: 'MetaMask' }
       : { addr: '0xDem0…A11g', label: 'Demo wallet' }
     setWallet(w)
     setView('dashboard')
     showToast('Wallet connected · holdings loaded')
+    // Overlay the wallet's real on-chain position (value + current weights).
+    // Falls back silently to the seeded demo position if unavailable.
+    try {
+      const holdings = await fetchHoldings(w.addr)
+      setIndexes(prev => applyHoldings(prev, holdings))
+    } catch {
+      /* keep seeded positions */
+    }
+    // Load this wallet's server-persisted settings + history.
+    try {
+      const profile = await fetchProfile(w.addr)
+      if (profile.settings) setSettings(s => Object.assign({}, s, profile.settings))
+      if (profile.history) setHistory(profile.history)
+    } catch {
+      /* keep local settings/history */
+    }
   }
   function disconnect() {
     setWallet(null)
@@ -150,16 +206,59 @@ export default function App() {
     setActiveId('top10')
   }
 
-  function refresh() {
+  async function refresh() {
     setRefreshing(true)
-    setTimeout(() => { setRefreshing(false); setSyncedAt(nowStr()); showToast('Prices refreshed') }, 900)
+    try {
+      const prices = await fetchPrices()
+      setIndexes(prev => mergePrices(prev, prices))
+      setSyncedAt(nowStr())
+      showToast('Prices refreshed')
+    } catch {
+      setSyncedAt(nowStr())
+      showToast('Live prices unavailable · showing cached')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // Open the rebalance drawer with the AUTHORITATIVE order set + SoDEX quote
+  // from the server. The dashboard panel shows a live client-side estimate;
+  // the binding orders are computed server-side. Falls back to client math.
+  async function openRebalance() {
+    let payload = { orders, summary, quote: null }
+    try {
+      const r = await fetchQuote({ index: activeId, tolerance: settings.tolerance, address: wallet?.addr })
+      payload = { orders: r.orders, summary: r.summary, quote: r.quote }
+    } catch {
+      /* use the live client-side estimate; drawer computes fees itself */
+    }
+    setRebal(payload)
+    setDrawer(true)
+  }
+
+  // Execute via the server (demo-guarded). A real server error (status present)
+  // surfaces as a failure in the drawer; if the functions are simply
+  // unreachable (offline / plain vite dev) we simulate so the demo completes.
+  async function executeRebalance(os, sum) {
+    try {
+      const { result } = await apiExecute({ index: activeId, tolerance: settings.tolerance, address: wallet?.addr })
+      return result
+    } catch (e) {
+      if (e && e.status) throw e
+      return { status: 'completed', simulated: true, routedVia: 'SoDEX', trades: os.length, volume: sum.volume, txHashes: [] }
+    }
+  }
+
+  function closeDrawer() {
+    setDrawer(false)
+    setRebal(null)
   }
 
   function completeRebalance(os, sum) {
     // align the active index to target
     setIndexes(prev => prev.map(ix => ix.id === activeId ? D.aligned(ix) : ix))
     // log it
-    setHistory(prev => [{
+    const entry = {
       id: 'h' + Date.now(),
       index: index.name,
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + nowStr(),
@@ -167,7 +266,10 @@ export default function App() {
       volume: sum.volume,
       drift: sum.maxDev,
       status: 'completed'
-    }, ...prev])
+    }
+    setHistory(prev => [entry, ...prev])
+    // Persist to the server for this wallet (fire-and-forget).
+    if (wallet) apiAppendHistory(wallet.addr, entry).catch(() => {})
     showToast('Rebalance complete · back on target')
   }
 
@@ -192,7 +294,7 @@ export default function App() {
             <Dashboard
               index={index} indexes={indexes} activeId={activeId} onSelect={setActiveId}
               summary={summary} rows={rows} orders={orders}
-              onRebalance={() => setDrawer(true)} onRefresh={refresh} refreshing={refreshing}
+              onRebalance={openRebalance} onRefresh={refresh} refreshing={refreshing}
               syncedAt={syncedAt} tolerance={settings.tolerance}
             />
           )}
@@ -200,12 +302,13 @@ export default function App() {
           {view === 'settings' && <Settings settings={settings} onChange={p => setSettings(s => Object.assign({}, s, p))} theme={theme} onToggleTheme={toggleTheme} />}
         </div>
       </main>
-      {drawer && (
+      {drawer && rebal && (
         <RebalanceDrawer
-          index={index} orders={orders} summary={summary}
-          onClose={() => setDrawer(false)}
+          index={index} orders={rebal.orders} summary={rebal.summary} quote={rebal.quote}
+          onExecute={executeRebalance}
+          onClose={closeDrawer}
           onComplete={completeRebalance}
-          onViewHistory={() => { setDrawer(false); setView('history') }}
+          onViewHistory={() => { closeDrawer(); setView('history') }}
         />
       )}
       <Toast toast={toast} />

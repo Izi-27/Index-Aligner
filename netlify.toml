@@ -8,7 +8,14 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# SPA fallback: serve index.html for client-side routes
+# Serverless API (Netlify Functions). Routes are declared per-function
+# via `export const config = { path: '/api/...' }`, so no redirects needed.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# SPA fallback: serve index.html for client-side routes.
+# Real files (app.html) and function routes (/api/*) take precedence.
 [[redirects]]
   from = "/*"
   to = "/index.html"

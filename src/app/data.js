@@ -41,6 +41,9 @@ const DEFI = {
   ]
 };
 
+// Offline fallback / initial seed. Live data comes from the backend via
+// api.js (/api/indexes, /api/prices); this is used when those aren't reachable
+// (e.g. plain `vite` dev) so the app always renders. The backend mirrors this.
 export const INDEXES = [TOP10, DEFI];
 
 // Build computed rows for an index.
